@@ -4,18 +4,23 @@ import models.*;
 import core.*;
 
 import java.util.*;
+import java.io.*;
 
 public class VehicleManagement {
     private static List<Motorcycle> motorcycles = new ArrayList<>();
     private static List<Car> cars = new ArrayList<>();
     private static List<Truck> trucks = new ArrayList<>();
 
+    private static final String MOTORCYCLE_FILE = "motorcycles.ser";
+    private static final String CAR_FILE = "cars.ser";
+    private static final String TRUCK_FILE = "trucks.ser";
+
     // Main method to run the application
     public static void main(String[] args) {
+        loadData();
         Scanner scanner = new Scanner(System.in);
         int choice;
 
-        // Display the initial menu
         while (true) {
             System.out.println("----- Vehicle Management System -----");
             System.out.println("1. Add Vehicle");
@@ -23,38 +28,67 @@ public class VehicleManagement {
             System.out.println("3. Update Vehicle");
             System.out.println("4. Search Vehicle");
             System.out.println("5. Display All Vehicles");
-            System.out.println("6. Exit");
+            System.out.println("6. Modify/View Body Serial Number");
+            System.out.println("7. Exit");
             System.out.print("Enter your choice: ");
             choice = scanner.nextInt();
-            scanner.nextLine();  // Consume newline
+            scanner.nextLine();
 
             switch (choice) {
-                case 1:
-                    addVehicle(scanner);
-                    break;
-                case 2:
-                    deleteVehicle(scanner);
-                    break;
-                case 3:
-                    updateVehicle(scanner);
-                    break;
-                case 4:
-                    searchVehicle(scanner);
-                    break;
-                case 5:
-                    displayAllVehicles();
-                    break;
-                case 6:
+                case 1 -> addVehicle(scanner);
+                case 2 -> deleteVehicle(scanner);
+                case 3 -> updateVehicle(scanner);
+                case 4 -> searchVehicle(scanner);
+                case 5 -> displayAllVehicles();
+                case 6 -> modifyBodySerialNumber(scanner);
+                case 7 -> {
+                    saveData();
                     System.out.println("Exiting the system...");
                     scanner.close();
                     return;
-                default:
-                    System.out.println("Invalid choice! Please try again.");
+                }
+                default -> System.out.println("Invalid choice! Please try again.");
             }
         }
     }
 
-    // Add a vehicle
+    // Save data to file
+    private static void saveData() {
+        try {
+            ObjectOutputStream out1 = new ObjectOutputStream(new FileOutputStream(MOTORCYCLE_FILE));
+            out1.writeObject(motorcycles);
+            out1.close();
+
+            ObjectOutputStream out2 = new ObjectOutputStream(new FileOutputStream(CAR_FILE));
+            out2.writeObject(cars);
+            out2.close();
+
+            ObjectOutputStream out3 = new ObjectOutputStream(new FileOutputStream(TRUCK_FILE));
+            out3.writeObject(trucks);
+            out3.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Load data from file
+    private static void loadData() {
+        try {
+            FileInputStream file1 = new FileInputStream(MOTORCYCLE_FILE);
+            motorcycles = (List<Motorcycle>) new ObjectInputStream(file1).readObject();
+
+            FileInputStream file2 = new FileInputStream(CAR_FILE);
+            cars = (List<Car>) new ObjectInputStream(file2).readObject();
+
+            FileInputStream file3 = new FileInputStream(TRUCK_FILE);
+            trucks = (List<Truck>) new ObjectInputStream(file3).readObject();
+        } catch (Exception e) {
+            motorcycles = new ArrayList<>();
+            cars = new ArrayList<>();
+            trucks = new ArrayList<>();
+        }
+    }
+
     private static void addVehicle(Scanner scanner) {
         // Get common vehicle details first
         System.out.print("Enter manufacture company: ");
@@ -143,6 +177,7 @@ public class VehicleManagement {
         }
     }
 
+
     // Delete a vehicle
     private static void deleteVehicle(Scanner scanner) {
         System.out.print("Enter the plate number of the vehicle to delete: ");
@@ -158,8 +193,7 @@ public class VehicleManagement {
             System.out.println("Vehicle not found.");
         }
     }
-
-    // Delete from specific list
+ // Delete from specific list
     private static <T> boolean deleteFromList(List<T> vehicles, int plateNum) {
         for (T vehicle : vehicles) {
             if (vehicle instanceof Automobile) {
@@ -196,29 +230,50 @@ public class VehicleManagement {
             System.out.println("Vehicle not found.");
         }
     }
-
-    // Search for a vehicle
     private static void searchVehicle(Scanner scanner) {
-        System.out.print("Enter the plate number of the vehicle to search: ");
-        int plateNum = scanner.nextInt();
+        System.out.println("Search by: 1. Plate Number 2. Manufacture Name 3. Manufacture Date");
+        int option = scanner.nextInt();
+        scanner.nextLine();
 
         boolean found = false;
 
-        // Check in all lists
-        found = searchInList(motorcycles, plateNum) || searchInList(cars, plateNum) || searchInList(trucks, plateNum);
+        if (option == 1) {
+            System.out.print("Enter plate number: ");
+            int plate = scanner.nextInt();
+            found = searchByPlate(plate);
+        } else if (option == 2) {
+            System.out.print("Enter manufacture name: ");
+            String name = scanner.nextLine();
+            found = searchByName(name);
+        } else if (option == 3) {
+            System.out.print("Enter manufacture date: ");
+            String date = scanner.nextLine();
+            found = searchByDate(date);
+        }
 
         if (!found) {
             System.out.println("Vehicle not found.");
         }
     }
 
-    // Search in specific list
-    private static <T> boolean searchInList(List<T> vehicles, int plateNum) {
+    private static boolean searchByPlate(int plateNum) {
+        return searchInList(motorcycles, plateNum) || searchInList(cars, plateNum) || searchInList(trucks, plateNum);
+    }
+
+    private static boolean searchByName(String name) {
+        return searchByField(motorcycles, name, "name") || searchByField(cars, name, "name") || searchByField(trucks, name, "name");
+    }
+
+    private static boolean searchByDate(String date) {
+        return searchByField(motorcycles, date, "date") || searchByField(cars, date, "date") || searchByField(trucks, date, "date");
+    }
+
+    private static <T> boolean searchByField(List<T> vehicles, String value, String type) {
         for (T vehicle : vehicles) {
-            if (vehicle instanceof Automobile) {
-                Automobile auto = (Automobile) vehicle;
-                if (auto.getPlateNum() == plateNum) {
-                    System.out.println("Vehicle found: " + auto.getModel());
+            if (vehicle instanceof Automobile auto) {
+                if ((type.equals("name") && auto.getManufactureCompany().equalsIgnoreCase(value)) ||
+                    (type.equals("date") && auto.getManufactureDate().equals(value))) {
+                    System.out.println(auto);
                     return true;
                 }
             }
@@ -226,11 +281,45 @@ public class VehicleManagement {
         return false;
     }
 
-    // Display all vehicles
+    private static <T> boolean searchInList(List<T> vehicles, int plateNum) {
+        for (T vehicle : vehicles) {
+            if (vehicle instanceof Automobile auto && auto.getPlateNum() == plateNum) {
+                System.out.println(auto);
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static void displayAllVehicles() {
-        System.out.println("All vehicles:");
-        System.out.println("Motorcycles: " + motorcycles.size());
-        System.out.println("Cars: " + cars.size());
-        System.out.println("Trucks: " + trucks.size());
+        motorcycles.forEach(System.out::println);
+        cars.forEach(System.out::println);
+        trucks.forEach(System.out::println);
+    }
+
+    private static void modifyBodySerialNumber(Scanner scanner) {
+        System.out.print("Enter plate number: ");
+        int plateNum = scanner.nextInt();
+
+        for (Automobile vehicle : getAllVehicles()) {
+            if (vehicle.getPlateNum() == plateNum) {
+                System.out.println("Current body serial number: " + vehicle.getBodySerialNum());
+                System.out.print("Enter new body serial number: ");
+                int newSerial = scanner.nextInt();
+                vehicle.setBodySerialNum(newSerial);
+                System.out.println("Updated successfully.");
+                return;
+            }
+        }
+
+        System.out.println("Vehicle not found.");
+    }
+
+    private static List<Automobile> getAllVehicles() {
+        List<Automobile> all = new ArrayList<>();
+        all.addAll(motorcycles);
+        all.addAll(cars);
+        all.addAll(trucks);
+        return all;
     }
 }
